@@ -17,7 +17,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("target", help="Target base URL, for example https://example.com")
     parser.add_argument("--max-depth", type=int, default=2, help="Maximum crawl depth.")
-    parser.add_argument("--max-pages", type=int, default=50, help="Maximum number of pages to crawl.")
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=50,
+        help="Maximum number of pages to crawl.",
+    )
     parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds.")
     parser.add_argument("--user-agent", default="web-security-audit/0.1", help="HTTP User-Agent.")
     parser.add_argument(

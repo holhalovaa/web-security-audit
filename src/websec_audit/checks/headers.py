@@ -89,7 +89,9 @@ def check_security_headers(page: Page) -> list[Finding]:
                 url=page.url,
                 description="The Strict-Transport-Security header disables HSTS with max-age=0.",
                 evidence=f"Strict-Transport-Security: {hsts}",
-                recommendation="Use a positive max-age value and include subdomains when appropriate.",
+                recommendation=(
+                    "Use a positive max-age value and include subdomains when appropriate."
+                ),
                 cwe="CWE-319",
                 owasp="A05:2021 Security Misconfiguration",
             )

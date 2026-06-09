@@ -174,9 +174,10 @@ def _render_finding(finding: Finding) -> str:
     poc = f"<h3>Proof of Concept</h3><pre>{escape(finding.poc)}</pre>" if finding.poc else ""
     refs = " ".join(filter(None, [finding.cwe, finding.owasp]))
     refs_html = f"<p class=\"meta\">References: {escape(refs)}</p>" if refs else ""
+    severity = escape(finding.severity.value)
     return f"""
       <article class="finding">
-        <p><span class="badge {escape(finding.severity.value)}">{escape(finding.severity.value)}</span></p>
+        <p><span class="badge {severity}">{severity}</span></p>
         <h3>{escape(finding.title)}</h3>
         <p>{escape(finding.description)}</p>
         <p class="evidence"><strong>URL:</strong> {escape(finding.url)}</p>
