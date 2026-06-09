@@ -1,0 +1,11 @@
+services:
+  scanner:
+    build: .
+    image: web-security-audit:latest
+    volumes:
+      - ./reports:/app/reports
+    command:
+      - "https://example.com"
+      - "--html-output"
+      - "reports/example-report.html"
+      - "--no-active-checks"
