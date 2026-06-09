@@ -36,6 +36,9 @@ flowchart LR
     Report --> Playwright["Playwright renderer"]
 ```
 
+More details are available in [docs/architecture.md](docs/architecture.md) and
+[docs/api.md](docs/api.md).
+
 ## Project Structure
 
 ```text
