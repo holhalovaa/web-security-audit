@@ -1,60 +1,119 @@
 # Web Security Audit
 
-## Данные студента
+**Название курсового проекта:** программа для аудита безопасности веб-приложений  
+**Вариант:** 8  
+**Предметная область:** тестирование на проникновение  
+**Студентка:** Холхалова Алина  
+**Группа:** 220032-11
 
-- ФИО: Holhalova Alina
-- Группа: укажите номер группы
+`Web Security Audit` — учебный production-grade инструмент для автоматического
+аудита безопасности веб-приложений. Программа обходит сайт, извлекает страницы и
+HTML-формы, проверяет типовые уязвимости, формирует Proof-of-Concept и сохраняет
+отчет в HTML, PDF и JSON.
 
-## Описание программы
+Инструмент реализован на Python с использованием `requests`, `BeautifulSoup` и
+`Playwright`. Архитектура разделена на независимые компоненты: CLI, HTTP-клиент,
+краулер, парсер, проверки безопасности и генератор отчетов.
 
-`web-security-audit` — консольная программа для авторизованного аудита
-безопасности веб-приложений. Инструмент обходит страницы целевого сайта,
-извлекает ссылки и HTML-формы, выполняет пассивные и активные проверки типовых
-уязвимостей, формирует доказательства Proof-of-Concept и сохраняет отчет в HTML,
-PDF и JSON.
+## Оглавление
 
-Программа предназначена для учебных стендов, лабораторных окружений и систем, на
-тестирование которых есть явное разрешение. Активные проверки отправляют
-payload-запросы в найденные формы, поэтому для внешних целей их нужно включать
-только при наличии согласованного разрешения.
+- [Основные возможности](#основные-возможности)
+- [Соответствие варианту](#соответствие-варианту)
+- [Соответствие обязательным требованиям](#соответствие-обязательным-требованиям)
+- [Стек технологий](#стек-технологий)
+- [Структура проекта](#структура-проекта)
+- [Сборка](#сборка)
+- [Запуск](#запуск)
+- [Примеры использования](#примеры-использования)
+- [Проверка качества](#проверка-качества)
+- [Документация](#документация)
+- [Безопасное использование](#безопасное-использование)
 
-## Возможности
+## Основные возможности
 
 - Краулинг сайта с ограничением по домену, глубине и количеству страниц.
-- Извлечение HTML-форм и нормализация относительных ссылок.
-- Проверка небезопасных или отсутствующих security headers.
-- Проверка state-changing форм на отсутствие CSRF-токена.
-- Активная проверка reflected XSS через отправку payload в формы.
-- Активная error-based проверка SQL injection.
-- Генерация Proof-of-Concept в виде `curl`-команды.
-- Отчеты в форматах HTML, PDF и JSON.
-- Автоматические тесты с целевым покрытием более 90%.
-- CI-пайплайн с тестами, линтингом, SAST и аудитом зависимостей.
+- Извлечение ссылок, заголовков страниц и HTML-форм.
+- Анализ форм и определение потенциально изменяющих состояние запросов.
+- Проверка отсутствующих и небезопасно настроенных security headers.
+- Проверка CSRF-защиты для `POST`, `PUT`, `PATCH` и `DELETE` форм.
+- Активная проверка reflected XSS через отправку контролируемого payload.
+- Активная error-based проверка SQL injection по характерным ошибкам СУБД.
+- Генерация Proof-of-Concept в виде воспроизводимой `curl`-команды.
+- Формирование HTML, PDF и JSON отчетов.
+- Автоматические тесты с покрытием выше 90%.
+- CI-пайплайн с линтингом, тестами, SAST и аудитом зависимостей.
+- Docker и Docker Compose для воспроизводимого запуска.
 
-## Используемые технологии
+## Соответствие варианту
 
-- Python 3.12
-- requests
-- BeautifulSoup4
-- Playwright
-- pytest и pytest-cov
-- Ruff
-- Bandit
-- pip-audit
-- Docker и Docker Compose
+| Требование варианта 8 | Реализация в проекте |
+| --- | --- |
+| Python | Основной язык проекта, пакет `websec_audit` |
+| requests | HTTP-клиент в `src/websec_audit/http_client.py` |
+| BeautifulSoup | Парсинг HTML в `src/websec_audit/parser.py` |
+| Playwright | Генерация PDF-отчета в `src/websec_audit/reporting/html_report.py` |
+| Сканирование XSS | `src/websec_audit/checks/xss.py` |
+| Сканирование SQLi | `src/websec_audit/checks/sqli.py` |
+| Проверка CSRF | `src/websec_audit/checks/csrf.py` |
+| Небезопасные заголовки | `src/websec_audit/checks/headers.py` |
+| Краулинг сайта | `src/websec_audit/crawler.py` |
+| Анализ форм | `src/websec_audit/parser.py` и security checks |
+| Proof-of-Concept | `src/websec_audit/checks/payloads.py` |
+| HTML/PDF отчет | `src/websec_audit/reporting/html_report.py` |
+
+## Соответствие обязательным требованиям
+
+| Компонент | Статус | Где находится |
+| --- | --- | --- |
+| Git и семантические коммиты | Выполнено | История коммитов содержит `feat:`, `fix:`, `test:`, `docs:` |
+| Git Flow | Выполнено | Используются ветки `main` и `develop`; для новых задач подходит схема `feature/* -> develop -> main` |
+| Модульное тестирование | Выполнено | `tests/`, запуск через `pytest` |
+| Контейнеризация | Выполнено | `Dockerfile`, `docker-compose.yml` |
+| README | Выполнено | Текущий файл |
+| API-документация | Выполнено | [docs/api.md](docs/api.md) |
+| Диаграммы | Выполнено | Mermaid-диаграммы в README и [docs/architecture.md](docs/architecture.md) |
+| SAST-анализ | Выполнено | `bandit`, CI workflow |
+| Проверка зависимостей | Выполнено | `pip-audit`, CI workflow |
+| Интеграция ИИ-инструментов | Выполнено | [docs/ai_usage.md](docs/ai_usage.md) |
+
+## Стек технологий
+
+| Технология | Назначение |
+| --- | --- |
+| Python 3.12 | Основная реализация CLI-инструмента |
+| requests | HTTP-запросы и отправка форм |
+| BeautifulSoup4 | Извлечение ссылок, заголовков и форм из HTML |
+| Playwright | Рендеринг HTML-отчета в PDF |
+| pytest, pytest-cov | Модульные тесты и покрытие |
+| Ruff | Линтинг и контроль стиля |
+| Bandit | SAST-анализ Python-кода |
+| pip-audit | Проверка зависимостей на известные уязвимости |
+| Docker, Docker Compose | Контейнеризация и воспроизводимый запуск |
+| GitHub Actions | CI-пайплайн качества |
 
 ## Структура проекта
 
 ```text
-src/websec_audit/          исходный код программы
-src/websec_audit/checks/   проверки XSS, SQLi, CSRF и security headers
-src/websec_audit/reporting/ генерация HTML/PDF отчетов
-tests/                     автоматические тесты
-docs/                      описание архитектуры и API
-.github/workflows/         CI-пайплайн
+.
+|-- src/
+|   `-- websec_audit/
+|       |-- checks/          # XSS, SQLi, CSRF и security headers
+|       |-- reporting/       # HTML/PDF отчеты
+|       |-- cli.py           # интерфейс командной строки
+|       |-- crawler.py       # обход сайта
+|       |-- http_client.py   # HTTP-клиент
+|       |-- parser.py        # HTML-парсер
+|       `-- scanner.py       # оркестратор аудита
+|-- tests/                   # модульные и интеграционные тесты
+|-- docs/                    # архитектура, API, безопасность, Docker, AI
+|-- .github/workflows/       # CI-пайплайн
+|-- Dockerfile
+|-- docker-compose.yml
+|-- pyproject.toml
+`-- README.md
 ```
 
-## Инструкция по сборке
+## Сборка
 
 ### Windows PowerShell
 
@@ -64,6 +123,13 @@ python -m venv .venv
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 python -m playwright install chromium
+```
+
+Если PowerShell запрещает запуск скриптов:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
 ```
 
 ### Linux или macOS
@@ -76,15 +142,15 @@ python -m pip install -e ".[dev]"
 python -m playwright install chromium
 ```
 
-## Инструкция по запуску
+## Запуск
 
-Пассивное сканирование без отправки payload в формы:
+Пассивный аудит без отправки payload в формы:
 
 ```bash
 websec-audit https://example.com --no-active-checks --html-output reports/report.html
 ```
 
-Полное сканирование с активными проверками и PDF-отчетом:
+Полный аудит с HTML, PDF и JSON отчетами:
 
 ```bash
 websec-audit https://example.com \
@@ -101,7 +167,7 @@ websec-audit https://example.com \
 docker compose up --build
 ```
 
-## Примеры запуска
+## Примеры использования
 
 Сканирование локального учебного стенда:
 
@@ -115,34 +181,16 @@ websec-audit http://localhost:8000 --max-depth 1 --max-pages 10
 websec-audit https://lab.local --no-verify-tls --html-output reports/lab.html
 ```
 
-Сканирование только поддоменов заданной цели:
+Сканирование с JSON-отчетом для дальнейшей автоматической обработки:
 
 ```bash
-websec-audit https://example.com --include-subdomains --max-depth 2
+websec-audit https://example.com \
+  --no-active-checks \
+  --html-output reports/example.html \
+  --json-output reports/example.json
 ```
 
-## Примеры запросов и API
-
-### CLI
-
-```bash
-websec-audit TARGET [options]
-```
-
-Основные параметры:
-
-- `TARGET` — абсолютный URL с протоколом `http` или `https`.
-- `--max-depth` — максимальная глубина обхода, по умолчанию `2`.
-- `--max-pages` — максимальное количество страниц, по умолчанию `50`.
-- `--timeout` — таймаут HTTP-запроса в секундах.
-- `--include-subdomains` — разрешить обход поддоменов.
-- `--no-active-checks` — отключить активные XSS и SQLi проверки.
-- `--no-verify-tls` — отключить проверку TLS-сертификата для лабораторных стендов.
-- `--html-output` — путь к HTML-отчету.
-- `--pdf-output` — путь к PDF-отчету.
-- `--json-output` — путь к JSON-отчету.
-
-### Python API
+Пример Python API:
 
 ```python
 from websec_audit.models import ScanConfig
@@ -159,71 +207,62 @@ report = SecurityAuditor(config).run()
 print(report.summary_by_severity)
 ```
 
-Пример фрагмента JSON-отчета:
+## Проверка качества
 
-```json
-{
-  "target_url": "https://example.com",
-  "summary_by_severity": {
-    "info": 0,
-    "low": 2,
-    "medium": 1,
-    "high": 1
-  },
-  "findings": [
-    {
-      "check_id": "headers.content-security-policy",
-      "severity": "high",
-      "recommendation": "Configure a strict Content-Security-Policy header."
-    }
-  ]
-}
+Запуск тестов и проверка покрытия:
+
+```bash
+pytest
 ```
 
-## Описание архитектуры
+Контрольная строка успешного запуска:
 
-Архитектура разделена на небольшие компоненты с явными ответственностями:
-
-- `cli.py` — разбор аргументов командной строки и сохранение отчетов.
-- `scanner.py` — оркестратор сканирования.
-- `crawler.py` — обход сайта в ширину с учетом scope, глубины и лимита страниц.
-- `parser.py` — извлечение ссылок, заголовков страниц и HTML-форм через BeautifulSoup.
-- `http_client.py` — HTTP-клиент на базе `requests`, изолированный протоколом.
-- `checks/headers.py` — анализ security headers.
-- `checks/csrf.py` — анализ CSRF-защиты HTML-форм.
-- `checks/xss.py` — активная reflected XSS проверка.
-- `checks/sqli.py` — активная error-based SQL injection проверка.
-- `reporting/html_report.py` — генерация HTML и PDF-отчетов.
-
-```mermaid
-flowchart LR
-    CLI["CLI"] --> Config["ScanConfig"]
-    Config --> Auditor["SecurityAuditor"]
-    Auditor --> Crawler["Crawler"]
-    Crawler --> Client["RequestsHttpClient"]
-    Crawler --> Parser["BeautifulSoup parser"]
-    Auditor --> Checks["Security checks"]
-    Checks --> Headers["Headers"]
-    Checks --> CSRF["CSRF"]
-    Checks --> XSS["XSS"]
-    Checks --> SQLi["SQLi"]
-    Auditor --> Report["ScanReport"]
-    Report --> HTML["HTML report"]
-    Report --> PDF["Playwright PDF"]
+```text
+30 passed
+TOTAL ... 99%
 ```
 
-HTTP-клиент внедряется через интерфейс, поэтому проверки легко тестировать без
-реальных сетевых запросов. Активные проверки отделены от пассивных и могут быть
-отключены флагом `--no-active-checks`.
-
-## Контроль качества
+Линтинг:
 
 ```bash
 ruff check .
-pytest
+```
+
+SAST-анализ:
+
+```bash
 bandit -c pyproject.toml -r src
+```
+
+Проверка зависимостей:
+
+```bash
 pip-audit
 ```
 
-Коммиты в проекте ведутся в стиле conventional commits, например:
-`feat: improve security header validation` или `test: cover active scanners`.
+На Windows при проблемах с кодировкой можно запустить:
+
+```powershell
+$env:PYTHONUTF8='1'
+python -m pip_audit
+```
+
+## Документация
+
+- [Архитектура проекта](docs/architecture.md)
+- [API и CLI](docs/api.md)
+- [Статический анализ](docs/static-analysis.md)
+- [Проверка зависимостей](docs/dependency-security.md)
+- [Docker и Docker Compose](docs/docker-check.md)
+- [Использование AI-инструментов](docs/ai_usage.md)
+
+## Безопасное использование
+
+Сканер предназначен для учебных стендов, собственных веб-приложений и систем, на
+проверку которых есть явное разрешение. Активные проверки XSS и SQLi отправляют
+payload-запросы в найденные формы. Для публичных сайтов и демонстраций без
+разрешения используйте режим:
+
+```bash
+websec-audit https://example.com --no-active-checks
+```

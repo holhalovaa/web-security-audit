@@ -1,7 +1,8 @@
-# API Documentation
+# API и CLI
 
-The project exposes a command-line interface and a small Python API for tests,
-automation, and future integrations.
+Проект предоставляет два способа использования: командную строку и Python API.
+CLI предназначен для обычного запуска сканирования, Python API — для тестов,
+автоматизации и возможной интеграции с другими инструментами.
 
 ## CLI
 
@@ -9,26 +10,56 @@ automation, and future integrations.
 websec-audit TARGET [options]
 ```
 
-Required argument:
+Обязательный аргумент:
 
-- `TARGET`: absolute `http` or `https` base URL.
+| Аргумент | Описание |
+| --- | --- |
+| `TARGET` | Абсолютный URL с протоколом `http` или `https` |
 
-Common options:
+Параметры:
 
-- `--max-depth`: maximum crawl depth. Default: `2`.
-- `--max-pages`: maximum number of pages. Default: `50`.
-- `--timeout`: HTTP timeout in seconds. Default: `10`.
-- `--include-subdomains`: include target subdomains in crawl scope.
-- `--no-active-checks`: disable XSS and SQLi form submissions.
-- `--no-verify-tls`: disable TLS verification for lab targets.
-- `--html-output`: HTML report path. Default: `reports/report.html`.
-- `--pdf-output`: optional PDF report path.
-- `--json-output`: optional JSON report path.
+| Параметр | Описание | Значение по умолчанию |
+| --- | --- | --- |
+| `--max-depth` | Максимальная глубина обхода | `2` |
+| `--max-pages` | Максимальное количество страниц | `50` |
+| `--timeout` | Таймаут HTTP-запроса в секундах | `10.0` |
+| `--user-agent` | User-Agent для запросов | `web-security-audit/0.1` |
+| `--include-subdomains` | Разрешить обход поддоменов | выключено |
+| `--no-active-checks` | Отключить активные XSS и SQLi проверки | выключено |
+| `--no-verify-tls` | Отключить проверку TLS-сертификата | выключено |
+| `--html-output` | Путь к HTML-отчету | `reports/report.html` |
+| `--pdf-output` | Путь к PDF-отчету | не задан |
+| `--json-output` | Путь к JSON-отчету | не задан |
+
+## Примеры CLI
+
+Пассивный запуск:
+
+```bash
+websec-audit https://example.com --no-active-checks --html-output reports/report.html
+```
+
+Полный запуск с PDF и JSON:
+
+```bash
+websec-audit https://example.com \
+  --max-depth 2 \
+  --max-pages 30 \
+  --html-output reports/report.html \
+  --pdf-output reports/report.pdf \
+  --json-output reports/report.json
+```
+
+Запуск для локального стенда:
+
+```bash
+websec-audit http://localhost:8000 --max-depth 1 --max-pages 10
+```
 
 ## Python API
 
 ```python
-from websec_audit import ScanConfig
+from websec_audit.models import ScanConfig
 from websec_audit.scanner import SecurityAuditor
 
 config = ScanConfig(
@@ -39,18 +70,46 @@ config = ScanConfig(
 )
 
 report = SecurityAuditor(config).run()
+print(report.summary_by_severity)
 ```
 
-Important models:
+## Основные модели
 
-- `ScanConfig`: scan limits, target URL, active/passive mode and TLS settings.
-- `ScanReport`: crawled pages, findings, duration and severity summary.
-- `Page`: normalized URL, status, headers, links and discovered forms.
-- `Form`: action, method and parsed fields.
-- `Finding`: check identifier, severity, evidence, recommendation and optional PoC.
+| Модель | Назначение |
+| --- | --- |
+| `ScanConfig` | Цель сканирования, лимиты, таймауты, режим активных проверок |
+| `ScanReport` | Итоговый отчет: страницы, findings, длительность, сводка |
+| `Page` | URL, статус, заголовки, title, ссылки и формы страницы |
+| `Form` | URL страницы, action, method и поля формы |
+| `Finding` | Найденная проблема: severity, evidence, recommendation, PoC |
 
-## Exit Behavior
+## Пример JSON-отчета
 
-The CLI exits with `0` after a completed scan, even when findings are detected.
-Findings are security results, not process failures. Invalid input exits through
-`argparse` with a non-zero code.
+```json
+{
+  "target_url": "https://example.com",
+  "duration_seconds": 1.234,
+  "summary_by_severity": {
+    "info": 0,
+    "low": 2,
+    "medium": 1,
+    "high": 1
+  },
+  "findings": [
+    {
+      "check_id": "headers.content-security-policy",
+      "title": "Missing Content Security Policy",
+      "severity": "high",
+      "url": "https://example.com/",
+      "evidence": "Observed headers: server",
+      "recommendation": "Configure a strict Content-Security-Policy header."
+    }
+  ]
+}
+```
+
+## Код завершения
+
+CLI возвращает `0`, если сканирование завершилось корректно. Наличие findings не
+считается ошибкой процесса: это результат аудита. Некорректный URL или неверные
+аргументы обрабатываются через `argparse` и приводят к ненулевому коду выхода.

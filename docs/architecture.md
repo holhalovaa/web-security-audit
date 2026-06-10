@@ -1,42 +1,69 @@
-# Architecture
+# Архитектура проекта
 
-The scanner is organized around small components with explicit responsibilities.
+`Web Security Audit` построен как набор небольших компонентов с отдельными
+зонами ответственности. Такой подход упрощает тестирование, расширение проверок
+и замену инфраструктурных частей, например HTTP-клиента или генератора отчетов.
+
+## Общая схема
 
 ```mermaid
 flowchart TD
-    User["User"] --> CLI["websec-audit CLI"]
+    User["Пользователь"] --> CLI["CLI: websec-audit"]
     CLI --> Config["ScanConfig"]
     Config --> Auditor["SecurityAuditor"]
     Auditor --> Crawler["Crawler"]
     Crawler --> Client["RequestsHttpClient"]
     Crawler --> Parser["BeautifulSoup parser"]
-    Auditor --> Passive["Passive checks"]
-    Auditor --> Active["Active checks"]
+    Auditor --> Passive["Пассивные проверки"]
+    Auditor --> Active["Активные проверки"]
     Passive --> Headers["Security headers"]
     Passive --> CSRF["CSRF"]
     Active --> XSS["Reflected XSS"]
     Active --> SQLi["Error-based SQLi"]
     Auditor --> Report["ScanReport"]
-    Report --> HTML["HTML report"]
-    Report --> PDF["Playwright PDF"]
+    Report --> HTML["HTML отчет"]
+    Report --> PDF["PDF через Playwright"]
+    Report --> JSON["JSON отчет"]
 ```
 
-## Components
+## Основные компоненты
 
-- `cli.py`: parses user input and writes HTML, PDF and JSON artifacts.
-- `scanner.py`: orchestrates crawling and checks.
-- `crawler.py`: performs breadth-first crawling within the configured scope.
-- `parser.py`: extracts links, titles and forms with BeautifulSoup.
-- `http_client.py`: isolates `requests` access behind a protocol.
-- `checks/headers.py`: detects missing or unsafe browser security headers.
-- `checks/csrf.py`: detects state-changing forms without token fields.
-- `checks/xss.py`: performs reflected XSS probes in active mode.
-- `checks/sqli.py`: performs error-based SQL injection probes in active mode.
-- `reporting/html_report.py`: renders HTML and optional PDF reports.
+| Компонент | Ответственность |
+| --- | --- |
+| `cli.py` | Разбор аргументов командной строки, создание конфигурации, сохранение отчетов |
+| `models.py` | Доменные модели: `ScanConfig`, `Page`, `Form`, `Finding`, `ScanReport` |
+| `scanner.py` | Оркестрация полного цикла аудита |
+| `crawler.py` | Обход страниц с учетом домена, глубины и лимита страниц |
+| `parser.py` | Извлечение ссылок, заголовков страниц и HTML-форм |
+| `http_client.py` | Изолированный HTTP-клиент на базе `requests` |
+| `checks/headers.py` | Проверка отсутствующих и слабых security headers |
+| `checks/csrf.py` | Проверка state-changing форм на наличие CSRF-токена |
+| `checks/xss.py` | Активная проверка reflected XSS |
+| `checks/sqli.py` | Активная проверка error-based SQL injection |
+| `checks/payloads.py` | Формирование payload и Proof-of-Concept |
+| `reporting/html_report.py` | Генерация HTML и PDF отчетов |
 
-## Design Notes
+## Поток выполнения
 
-- Active checks are optional because they submit payloads to target forms.
-- The HTTP client is injectable, which keeps tests fast and avoids real network calls.
-- The crawler enforces host scope, depth and page limits to prevent uncontrolled scans.
-- Findings include evidence and remediation guidance so the report is useful for triage.
+1. Пользователь запускает `websec-audit` и передает целевой URL.
+2. CLI валидирует URL и создает `ScanConfig`.
+3. `SecurityAuditor` запускает `Crawler`.
+4. Краулер получает страницы через `RequestsHttpClient`.
+5. HTML анализируется через `BeautifulSoup`: извлекаются ссылки, формы и title.
+6. Для каждой страницы запускаются пассивные проверки заголовков и CSRF.
+7. Если активные проверки включены, формы проверяются на XSS и SQLi.
+8. Все результаты собираются в `ScanReport`.
+9. Отчет сохраняется в HTML, при необходимости в PDF и JSON.
+
+## Архитектурные решения
+
+- HTTP-клиент описан протоколом и внедряется в краулер/сканеры. Благодаря этому
+  тесты не выполняют реальные сетевые запросы.
+- Активные проверки отделены от пассивных и отключаются флагом
+  `--no-active-checks`.
+- Краулер ограничивает область обхода, глубину и количество страниц, чтобы
+  сканирование было контролируемым.
+- Findings содержат severity, evidence, recommendation, CWE/OWASP и PoC, поэтому
+  отчет пригоден не только для демонстрации, но и для последующего исправления.
+- Генератор отчетов отделен от логики проверок, поэтому формат вывода можно
+  расширять без изменения сканеров.
