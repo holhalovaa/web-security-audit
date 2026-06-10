@@ -44,7 +44,7 @@ ignore = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-q --cov=websec_audit --cov-report=term-missing"
+addopts = "-q --basetemp=.pytest_tmp --cov=websec_audit --cov-report=term-missing"
 testpaths = ["tests"]
 
 [tool.bandit]
