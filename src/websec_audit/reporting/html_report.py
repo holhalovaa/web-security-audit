@@ -15,10 +15,10 @@ def render_html_report(report: ScanReport) -> str:
     finished_at = report.finished_at.isoformat() if report.finished_at else "running"
 
     return f"""<!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Web Security Audit Report</title>
+  <title>Отчет аудита безопасности веб-приложения</title>
   <style>
     :root {{
       color-scheme: light;
@@ -119,14 +119,14 @@ def render_html_report(report: ScanReport) -> str:
 <body>
   <main>
     <header>
-      <h1>Web Security Audit Report</h1>
-      <p class="meta">Target: <strong>{escape(report.target_url)}</strong></p>
-      <p class="meta">Started: {escape(report.started_at.isoformat())} |
-      Finished: {escape(finished_at)} | Duration: {report.duration_seconds}s</p>
+      <h1>Отчет аудита безопасности веб-приложения</h1>
+      <p class="meta">Цель: <strong>{escape(report.target_url)}</strong></p>
+      <p class="meta">Начало: {escape(report.started_at.isoformat())} |
+      Завершение: {escape(finished_at)} | Длительность: {report.duration_seconds}s</p>
     </header>
 
     <section>
-      <h2>Summary</h2>
+      <h2>Сводка</h2>
       <div class="summary">
         <div class="metric"><span>High</span><strong>{summary["high"]}</strong></div>
         <div class="metric"><span>Medium</span><strong>{summary["medium"]}</strong></div>
@@ -136,15 +136,15 @@ def render_html_report(report: ScanReport) -> str:
     </section>
 
     <section>
-      <h2>Findings</h2>
-      {findings or "<p>No findings were detected.</p>"}
+      <h2>Найденные проблемы</h2>
+      {findings or "<p>Проблемы безопасности не обнаружены.</p>"}
     </section>
 
     <section>
-      <h2>Crawled Pages</h2>
+      <h2>Просканированные страницы</h2>
       <table>
         <thead>
-          <tr><th>URL</th><th>Status</th><th>Title</th><th>Forms</th><th>Links</th></tr>
+          <tr><th>URL</th><th>Статус</th><th>Заголовок</th><th>Формы</th><th>Ссылки</th></tr>
         </thead>
         <tbody>{pages}</tbody>
       </table>
@@ -171,9 +171,11 @@ def write_pdf_report(report: ScanReport, output_path: Path) -> None:
 
 
 def _render_finding(finding: Finding) -> str:
-    poc = f"<h3>Proof of Concept</h3><pre>{escape(finding.poc)}</pre>" if finding.poc else ""
+    poc = (
+        f"<h3>Proof of Concept</h3><pre>{escape(finding.poc)}</pre>" if finding.poc else ""
+    )
     refs = " ".join(filter(None, [finding.cwe, finding.owasp]))
-    refs_html = f"<p class=\"meta\">References: {escape(refs)}</p>" if refs else ""
+    refs_html = f"<p class=\"meta\">Ссылки: {escape(refs)}</p>" if refs else ""
     severity = escape(finding.severity.value)
     return f"""
       <article class="finding">
@@ -181,8 +183,8 @@ def _render_finding(finding: Finding) -> str:
         <h3>{escape(finding.title)}</h3>
         <p>{escape(finding.description)}</p>
         <p class="evidence"><strong>URL:</strong> {escape(finding.url)}</p>
-        <p class="evidence"><strong>Evidence:</strong> {escape(finding.evidence)}</p>
-        <p><strong>Recommendation:</strong> {escape(finding.recommendation)}</p>
+        <p class="evidence"><strong>Доказательство:</strong> {escape(finding.evidence)}</p>
+        <p><strong>Рекомендация:</strong> {escape(finding.recommendation)}</p>
         {refs_html}
         {poc}
       </article>

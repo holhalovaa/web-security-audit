@@ -1,5 +1,7 @@
 from collections.abc import Mapping
 
+import requests
+
 from websec_audit.http_client import HttpResponse
 from websec_audit.models import ScanConfig
 from websec_audit.reporting.html_report import render_html_report
@@ -26,6 +28,11 @@ class AuditClient:
         return HttpResponse(url=url, status_code=200, headers={}, text="<html>clean</html>")
 
 
+class ErrorClient(AuditClient):
+    def get(self, url: str) -> HttpResponse:
+        raise requests.RequestException("timeout")
+
+
 def test_security_auditor_runs_passive_checks() -> None:
     report = SecurityAuditor(
         ScanConfig(
@@ -45,6 +52,37 @@ def test_security_auditor_runs_passive_checks() -> None:
     assert report.finished_at is not None
 
 
+def test_security_auditor_reports_crawler_errors() -> None:
+    report = SecurityAuditor(
+        ScanConfig(target_url="https://example.test/", max_depth=0),
+        client=ErrorClient(),
+    ).run()
+
+    assert report.pages == []
+    assert len(report.findings) == 1
+    assert report.findings[0].check_id == "crawler.fetch-error"
+
+
+def test_security_auditor_deduplicates_active_findings() -> None:
+    class VulnerableClient(AuditClient):
+        def submit(self, method: str, url: str, data: Mapping[str, str]) -> HttpResponse:
+            return HttpResponse(
+                url=url,
+                status_code=200,
+                headers={},
+                text='<script>alert("websec-audit")</script>',
+            )
+
+    report = SecurityAuditor(
+        ScanConfig(target_url="https://example.test/", max_depth=0, active_checks=True),
+        client=VulnerableClient(),
+    ).run()
+
+    finding_ids = [finding.check_id for finding in report.findings]
+
+    assert finding_ids.count("xss.reflected") == 1
+
+
 def test_html_report_contains_summary_and_findings() -> None:
     report = SecurityAuditor(
         ScanConfig(target_url="https://example.test/", max_depth=0, active_checks=False),
@@ -53,6 +91,6 @@ def test_html_report_contains_summary_and_findings() -> None:
 
     html = render_html_report(report)
 
-    assert "Web Security Audit Report" in html
+    assert "Отчет аудита безопасности веб-приложения" in html
     assert "Audit me" in html
     assert "Missing Content Security Policy" in html
