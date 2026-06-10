@@ -36,6 +36,68 @@ def test_configured_security_headers_do_not_create_findings() -> None:
     assert check_security_headers(page) == []
 
 
+def test_weak_security_header_values_are_reported() -> None:
+    page = Page(
+        url="https://example.test/",
+        status_code=200,
+        headers={
+            "Content-Security-Policy": "default-src * 'unsafe-inline'",
+            "Strict-Transport-Security": "max-age=120",
+            "X-Frame-Options": "ALLOWALL",
+            "X-Content-Type-Options": "sniff",
+            "Referrer-Policy": "unsafe-url",
+            "Permissions-Policy": "geolocation=()",
+        },
+    )
+
+    finding_ids = {finding.check_id for finding in check_security_headers(page)}
+
+    assert finding_ids >= {
+        "headers.content-security-policy-weak",
+        "headers.hsts-short-max-age",
+        "headers.x-frame-options-invalid",
+        "headers.x-content-type-options-invalid",
+        "headers.referrer-policy-unsafe",
+    }
+
+
+def test_csp_frame_ancestors_replaces_x_frame_options() -> None:
+    page = Page(
+        url="https://example.test/",
+        status_code=200,
+        headers={
+            "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'",
+            "Strict-Transport-Security": "max-age=31536000",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+            "Permissions-Policy": "geolocation=()",
+        },
+    )
+
+    finding_ids = {finding.check_id for finding in check_security_headers(page)}
+
+    assert "headers.x-frame-options" not in finding_ids
+
+
+def test_disabled_hsts_is_reported() -> None:
+    page = Page(
+        url="https://example.test/",
+        status_code=200,
+        headers={
+            "Content-Security-Policy": "default-src 'self'",
+            "Strict-Transport-Security": "max-age=0",
+            "X-Frame-Options": "DENY",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+            "Permissions-Policy": "geolocation=()",
+        },
+    )
+
+    finding_ids = {finding.check_id for finding in check_security_headers(page)}
+
+    assert "headers.hsts-disabled" in finding_ids
+
+
 def test_state_changing_form_without_csrf_token_is_reported() -> None:
     page = Page(
         url="https://example.test/login",
