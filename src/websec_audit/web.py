@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import ClassVar
 from urllib.parse import parse_qs, unquote, urlparse
 
-from websec_audit.models import Finding, ScanConfig, ScanReport, Severity
+from websec_audit.models import DEFAULT_USER_AGENT, Finding, ScanConfig, ScanReport, Severity
 from websec_audit.reporting.html_report import write_html_report, write_pdf_report
 from websec_audit.scanner import SecurityAuditor
 
@@ -48,8 +48,8 @@ class AuditWebApp:
             max_depth=_bounded_int(_form_value(form, "max_depth", "2"), 0, 5),
             max_pages=_bounded_int(_form_value(form, "max_pages", "20"), 1, 100),
             timeout=_bounded_float(_form_value(form, "timeout", "10"), 1.0, 60.0),
-            user_agent=_form_value(form, "user_agent", "web-security-audit-web/0.1").strip()
-            or "web-security-audit-web/0.1",
+            user_agent=_form_value(form, "user_agent", DEFAULT_USER_AGENT).strip()
+            or DEFAULT_USER_AGENT,
             include_subdomains="include_subdomains" in form,
             active_checks=active_checks,
             verify_tls="no_verify_tls" not in form,
@@ -214,7 +214,7 @@ def render_home(error: str | None = None) -> str:
                 <option value="playwright">Playwright for JavaScript sites</option>
               </select>
             </label>
-            <label class="field wide"><span>User-Agent</span><input name="user_agent" value="web-security-audit-web/0.1"></label>
+            <label class="field wide"><span>User-Agent</span><input name="user_agent" value="{escape(DEFAULT_USER_AGENT)}"></label>
             <div class="toggles">
               <label><input type="checkbox" name="include_subdomains"> Сканировать поддомены</label>
               <label><input type="checkbox" name="no_verify_tls"> Не проверять TLS для лабораторных стендов</label>

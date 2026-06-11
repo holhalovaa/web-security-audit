@@ -25,15 +25,31 @@ class SecurityAuditor:
         report.pages.extend(crawl_result.pages)
 
         for url, error in crawl_result.errors.items():
+            is_crawl_limitation = "anti-bot or browser challenge" in error
             report.findings.append(
                 Finding(
-                    check_id="crawler.fetch-error",
-                    title="Page could not be fetched",
+                    check_id="crawler.limitation" if is_crawl_limitation else "crawler.fetch-error",
+                    title=(
+                        "Crawl was limited by a browser challenge"
+                        if is_crawl_limitation
+                        else "Page could not be fetched"
+                    ),
                     severity=Severity.INFO,
                     url=url,
-                    description="The crawler could not retrieve this URL.",
+                    description=(
+                        "The crawler reached a bot-protection or browser challenge page instead "
+                        "of the real application."
+                        if is_crawl_limitation
+                        else "The crawler could not retrieve this URL."
+                    ),
                     evidence=error,
-                    recommendation="Verify that the URL is reachable and allowed by the target.",
+                    recommendation=(
+                        "Run the audit against an authorized test/staging endpoint, allowlist "
+                        "the scanner, or provide a target that does not require interactive "
+                        "anti-bot validation."
+                        if is_crawl_limitation
+                        else "Verify that the URL is reachable and allowed by the target."
+                    ),
                 )
             )
 

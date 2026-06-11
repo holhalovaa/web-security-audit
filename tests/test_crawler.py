@@ -162,3 +162,77 @@ def test_crawler_can_force_playwright_engine_without_requests() -> None:
     ).crawl()
 
     assert [page.title for page in result.pages] == ["Rendered"]
+
+
+def test_crawler_uses_playwright_discovered_links() -> None:
+    class FailingClient(FakeClient):
+        def get(self, url: str) -> HttpResponse:
+            raise AssertionError("requests engine must not be used")
+
+    class FakeRenderer:
+        def render(self, url: str) -> RenderedResponse:
+            pages = {
+                "https://example.test/": RenderedResponse(
+                    url=url,
+                    status_code=200,
+                    headers={"content-type": "text/html"},
+                    html="<html><title>Home</title></html>",
+                    discovered_links=(
+                        "https://example.test/catalog",
+                        "https://other.test/ignored",
+                    ),
+                ),
+                "https://example.test/catalog": RenderedResponse(
+                    url=url,
+                    status_code=200,
+                    headers={"content-type": "text/html"},
+                    html="<html><title>Catalog</title></html>",
+                ),
+            }
+            return pages[url]
+
+        def close(self) -> None:
+            return None
+
+    result = Crawler(
+        ScanConfig(
+            target_url="https://example.test/",
+            max_depth=1,
+            max_pages=10,
+            crawl_engine="playwright",
+        ),
+        FailingClient(),
+        renderer=FakeRenderer(),
+    ).crawl()
+
+    assert [page.url for page in result.pages] == [
+        "https://example.test/",
+        "https://example.test/catalog",
+    ]
+
+
+def test_crawler_records_browser_challenge_pages_without_dropping_page() -> None:
+    class FailingClient(FakeClient):
+        def get(self, url: str) -> HttpResponse:
+            raise AssertionError("requests engine must not be used")
+
+    class FakeRenderer:
+        def render(self, url: str) -> RenderedResponse:
+            return RenderedResponse(
+                url=url,
+                status_code=200,
+                headers={"content-type": "text/html"},
+                html="<html><title>Just a moment</title><body>Checking your browser</body></html>",
+            )
+
+        def close(self) -> None:
+            return None
+
+    result = Crawler(
+        ScanConfig(target_url="https://example.test/", crawl_engine="playwright"),
+        FailingClient(),
+        renderer=FakeRenderer(),
+    ).crawl()
+
+    assert len(result.pages) == 1
+    assert "anti-bot or browser challenge" in result.errors["https://example.test/"]

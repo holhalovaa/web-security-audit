@@ -5,6 +5,11 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 WebSecurityAudit/0.1"
+)
+
 
 class Severity(StrEnum):
     INFO = "info"
@@ -76,7 +81,7 @@ class ScanConfig:
     max_depth: int = 2
     max_pages: int = 50
     timeout: float = 10.0
-    user_agent: str = "web-security-audit/0.1"
+    user_agent: str = DEFAULT_USER_AGENT
     include_subdomains: bool = False
     active_checks: bool = True
     verify_tls: bool = True

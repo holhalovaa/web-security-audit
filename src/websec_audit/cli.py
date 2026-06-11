@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from urllib.parse import urlparse
 
-from websec_audit.models import ScanConfig
+from websec_audit.models import DEFAULT_USER_AGENT, ScanConfig
 from websec_audit.reporting.html_report import write_html_report, write_pdf_report
 from websec_audit.scanner import SecurityAuditor
 
@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum number of pages to crawl.",
     )
     parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds.")
-    parser.add_argument("--user-agent", default="web-security-audit/0.1", help="HTTP User-Agent.")
+    parser.add_argument("--user-agent", default=DEFAULT_USER_AGENT, help="HTTP User-Agent.")
     parser.add_argument(
         "--include-subdomains",
         action="store_true",

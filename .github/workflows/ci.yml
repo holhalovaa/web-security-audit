@@ -33,4 +33,6 @@ jobs:
         run: bandit -c pyproject.toml -r src
 
       - name: Dependency audit
-        run: pip-audit
+        run: |
+          python -m pip freeze --exclude-editable > requirements-audit.txt
+          pip-audit -r requirements-audit.txt
