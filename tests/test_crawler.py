@@ -277,3 +277,72 @@ def test_crawler_records_browser_challenge_pages_without_dropping_page() -> None
 
     assert len(result.pages) == 1
     assert "anti-bot or browser challenge" in result.errors["https://example.test/"]
+
+
+def test_crawler_does_not_follow_links_from_browser_challenge_pages() -> None:
+    class FailingClient(FakeClient):
+        def get(self, url: str) -> HttpResponse:
+            raise AssertionError("requests engine must not be used")
+
+    class FakeRenderer:
+        rendered: list[str] = []
+
+        def render(self, url: str) -> RenderedResponse:
+            self.rendered.append(url)
+            return RenderedResponse(
+                url=url,
+                status_code=498,
+                headers={"content-type": "text/html"},
+                html=(
+                    "<html><title>Почти готово...</title>"
+                    "<body>/__wbaas/challenges/antibot/api/v1/cb</body></html>"
+                ),
+                discovered_links=(
+                    "https://example.test/__wbaas/challenges/antibot/api/v1/cb",
+                ),
+            )
+
+        def close(self) -> None:
+            return None
+
+    renderer = FakeRenderer()
+    result = Crawler(
+        ScanConfig(
+            target_url="https://example.test/",
+            max_depth=2,
+            max_pages=10,
+            crawl_engine="playwright",
+        ),
+        FailingClient(),
+        renderer=renderer,
+    ).crawl()
+
+    assert [page.url for page in result.pages] == ["https://example.test/"]
+    assert renderer.rendered == ["https://example.test/"]
+
+
+def test_crawler_drops_browser_error_pages() -> None:
+    class FailingClient(FakeClient):
+        def get(self, url: str) -> HttpResponse:
+            raise AssertionError("requests engine must not be used")
+
+    class FakeRenderer:
+        def render(self, url: str) -> RenderedResponse:
+            return RenderedResponse(
+                url="chrome-error://chromewebdata/",
+                status_code=200,
+                headers={"content-type": "text/html"},
+                html="<html></html>",
+            )
+
+        def close(self) -> None:
+            return None
+
+    result = Crawler(
+        ScanConfig(target_url="https://example.test/", crawl_engine="playwright"),
+        FailingClient(),
+        renderer=FakeRenderer(),
+    ).crawl()
+
+    assert result.pages == []
+    assert "browser error page" in result.errors["https://example.test/"]

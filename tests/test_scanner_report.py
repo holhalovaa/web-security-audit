@@ -63,6 +63,43 @@ def test_security_auditor_reports_crawler_errors() -> None:
     assert report.findings[0].check_id == "crawler.fetch-error"
 
 
+def test_security_auditor_skips_header_checks_for_json_pages() -> None:
+    class JsonClient(AuditClient):
+        def get(self, url: str) -> HttpResponse:
+            return HttpResponse(
+                url=url,
+                status_code=200,
+                headers={"content-type": "application/json"},
+                text='{"ok": true}',
+            )
+
+    report = SecurityAuditor(
+        ScanConfig(target_url="https://example.test/api", max_depth=0, active_checks=False),
+        client=JsonClient(),
+    ).run()
+
+    assert report.pages[0].content_type == "application/json"
+    assert report.findings == []
+
+
+def test_security_auditor_reports_challenge_as_limitation_only() -> None:
+    class ChallengeClient(AuditClient):
+        def get(self, url: str) -> HttpResponse:
+            return HttpResponse(
+                url=url,
+                status_code=498,
+                headers={"content-type": "text/html"},
+                text="<html><title>Почти готово...</title><body>antibot challenge</body></html>",
+            )
+
+    report = SecurityAuditor(
+        ScanConfig(target_url="https://example.test/", max_depth=0, active_checks=False),
+        client=ChallengeClient(),
+    ).run()
+
+    assert [finding.check_id for finding in report.findings] == ["crawler.limitation"]
+
+
 def test_security_auditor_deduplicates_active_findings() -> None:
     class VulnerableClient(AuditClient):
         def submit(self, method: str, url: str, data: Mapping[str, str]) -> HttpResponse:

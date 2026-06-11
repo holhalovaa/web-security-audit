@@ -6,6 +6,7 @@ from collections import deque
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Protocol
+from urllib.parse import urlparse
 
 import requests
 
@@ -244,6 +245,13 @@ class Crawler:
         response = self._client.get(url)
         page = _page_from_response(response)
 
+        if _looks_like_challenge_page(response.url, response.text):
+            errors[url] = (
+                "Fetched page appears to be an anti-bot or browser challenge page. "
+                "The scan result is limited because the target did not expose the real application."
+            )
+            return _page_from_response(response, suppress_links=True)
+
         if engine == "auto" and _should_render_with_playwright(response, page):
             rendered_page = self._render_page(url, errors)
             if rendered_page is not None:
@@ -261,11 +269,20 @@ class Crawler:
             errors[url] = f"Playwright render failed: {exc}"
             return None
 
+        if not _is_http_url(rendered.url):
+            errors[url] = (
+                "Playwright navigated to a browser error page instead of the target "
+                f"application: {rendered.url}"
+            )
+            return None
+
+        extra_links = rendered.discovered_links
         if _looks_like_challenge_page(rendered.url, rendered.html):
             errors[url] = (
                 "Rendered page appears to be an anti-bot or browser challenge page. "
                 "The scan result is limited because the target did not expose the real application."
             )
+            extra_links = ()
 
         return _page_from_response(
             HttpResponse(
@@ -274,7 +291,7 @@ class Crawler:
                 headers=rendered.headers,
                 text=rendered.html,
             ),
-            extra_links=rendered.discovered_links,
+            extra_links=extra_links,
         )
 
     def _normalized_engine(self) -> str:
@@ -285,14 +302,19 @@ class Crawler:
 def _page_from_response(
     response: HttpResponse,
     extra_links: tuple[str, ...] = (),
+    suppress_links: bool = False,
 ) -> Page:
     content_type = response.headers.get("content-type", "")
     is_html = "html" in content_type.lower() or response.text.lstrip().startswith("<")
-    html_links = extract_links(response.url, response.text) if is_html else ()
+    html_links = ()
+    if not suppress_links and is_html:
+        html_links = extract_links(response.url, response.text)
     structured_links = set()
-    if not is_html and _may_contain_links(content_type):
+    if not suppress_links and not is_html and _may_contain_links(content_type):
         structured_links = _extract_links_from_text(response.url, response.text)
-    links = tuple(sorted(set(html_links).union(structured_links, extra_links)))
+    links = ()
+    if not suppress_links:
+        links = tuple(sorted(set(html_links).union(structured_links, extra_links)))
     forms = extract_forms(response.url, response.text) if is_html else ()
 
     return Page(
@@ -302,6 +324,7 @@ def _page_from_response(
         title=extract_title(response.text) if is_html else "",
         links=links,
         forms=forms,
+        content_type=content_type,
     )
 
 
@@ -331,6 +354,10 @@ def _may_contain_links(content_type: str) -> bool:
         marker in normalized
         for marker in ("json", "javascript", "text/", "xml", "html", "x-www-form-urlencoded")
     )
+
+
+def _is_http_url(url: str) -> bool:
+    return urlparse(url).scheme in {"http", "https"}
 
 
 def _extract_links_from_text(base_url: str, text: str) -> set[str]:

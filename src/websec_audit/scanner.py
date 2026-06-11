@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from websec_audit.checks.csrf import check_csrf
 from websec_audit.checks.headers import check_security_headers
 from websec_audit.checks.sqli import SqliScanner
 from websec_audit.checks.xss import XssScanner
 from websec_audit.crawler import Crawler
 from websec_audit.http_client import HttpClient, RequestsHttpClient
-from websec_audit.models import Finding, ScanConfig, ScanReport, Severity
+from websec_audit.models import Finding, Page, ScanConfig, ScanReport, Severity
 
 
 class SecurityAuditor:
@@ -55,8 +57,16 @@ class SecurityAuditor:
 
         xss_scanner = XssScanner(self._client)
         sqli_scanner = SqliScanner(self._client)
+        limited_urls = {
+            url
+            for url, error in crawl_result.errors.items()
+            if "anti-bot or browser challenge" in error
+        }
 
         for page in report.pages:
+            if not _is_passively_scannable_page(page, limited_urls):
+                continue
+
             report.findings.extend(check_security_headers(page))
             report.findings.extend(check_csrf(page))
 
@@ -70,6 +80,17 @@ class SecurityAuditor:
         report.findings = _deduplicate(report.findings)
         report.finish()
         return report
+
+
+def _is_passively_scannable_page(page: Page, limited_urls: set[str]) -> bool:
+    if page.url in limited_urls:
+        return False
+    if urlparse(page.url).scheme not in {"http", "https"}:
+        return False
+    if page.status_code >= 400:
+        return False
+    content_type = page.content_type.lower()
+    return "html" in content_type or page.title or page.forms
 
 
 def _deduplicate(findings: list[Finding]) -> list[Finding]:

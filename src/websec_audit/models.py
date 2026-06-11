@@ -42,6 +42,7 @@ class Page:
     url: str
     status_code: int
     headers: dict[str, str]
+    content_type: str = ""
     title: str = ""
     links: tuple[str, ...] = ()
     forms: tuple[Form, ...] = ()
@@ -122,6 +123,7 @@ class ScanReport:
                 {
                     "url": page.url,
                     "status_code": page.status_code,
+                    "content_type": page.content_type,
                     "title": page.title,
                     "links": list(page.links),
                     "forms": [
