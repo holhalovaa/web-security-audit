@@ -9,3 +9,12 @@ services:
       - "--html-output"
       - "reports/example-report.html"
       - "--no-active-checks"
+  web:
+    build: .
+    image: web-security-audit:latest
+    entrypoint: ["websec-audit-web"]
+    command: ["--host", "0.0.0.0", "--port", "8080"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./reports:/app/reports

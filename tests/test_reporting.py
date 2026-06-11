@@ -10,6 +10,8 @@ def test_render_report_without_findings() -> None:
 
     assert "Проблемы безопасности не обнаружены." in html
     assert "https://example.test/" in html
+    assert 'href="#severity-high"' in html
+    assert 'class="back-top"' in html
 
 
 def test_write_html_report_creates_parent_directory(tmp_path) -> None:
@@ -96,3 +98,4 @@ def test_report_escapes_poc_and_references() -> None:
     assert "CWE-79 A03:2021 Injection" in html
     assert "Proof of Concept" in html
     assert "Доказательство" in html
+    assert 'id="severity-high"' in html

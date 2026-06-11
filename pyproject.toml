@@ -27,6 +27,7 @@ dev = [
 
 [project.scripts]
 websec-audit = "websec_audit.cli:main"
+websec-audit-web = "websec_audit.web:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

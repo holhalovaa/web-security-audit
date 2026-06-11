@@ -15,5 +15,7 @@ COPY src ./src
 RUN pip install --no-cache-dir . \
     && python -m playwright install --with-deps chromium
 
+EXPOSE 8080
+
 ENTRYPOINT ["websec-audit"]
 CMD ["--help"]

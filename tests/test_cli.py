@@ -63,6 +63,8 @@ def test_cli_main_writes_requested_outputs(monkeypatch, tmp_path, capsys) -> Non
             "--include-subdomains",
             "--no-active-checks",
             "--no-verify-tls",
+            "--crawl-engine",
+            "playwright",
             "--html-output",
             str(html_path),
             "--pdf-output",
@@ -86,6 +88,7 @@ def test_cli_main_writes_requested_outputs(monkeypatch, tmp_path, capsys) -> Non
     assert FakeAuditor.last_config.include_subdomains is True
     assert FakeAuditor.last_config.active_checks is False
     assert FakeAuditor.last_config.verify_tls is False
+    assert FakeAuditor.last_config.crawl_engine == "playwright"
 
 
 def test_cli_rejects_invalid_target() -> None:

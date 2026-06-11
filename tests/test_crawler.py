@@ -3,7 +3,7 @@ from collections.abc import Mapping
 import pytest
 import requests
 
-from websec_audit.crawler import Crawler
+from websec_audit.crawler import Crawler, RenderedResponse
 from websec_audit.http_client import HttpResponse
 from websec_audit.models import ScanConfig
 
@@ -87,3 +87,78 @@ def test_crawler_handles_non_html_responses() -> None:
 def test_crawler_rejects_invalid_target_url() -> None:
     with pytest.raises(ValueError):
         Crawler(ScanConfig(target_url="mailto:admin@example.test"), FakeClient()).crawl()
+
+
+def test_crawler_uses_playwright_renderer_for_spa_pages() -> None:
+    class SpaClient(FakeClient):
+        def get(self, url: str) -> HttpResponse:
+            self.seen.append(url)
+            return HttpResponse(
+                url=url,
+                status_code=200,
+                headers={"content-type": "text/html"},
+                text=(
+                    '<html><head><script src="/app.js"></script></head>'
+                    '<body><div id="app"></div></body></html>'
+                ),
+            )
+
+    class FakeRenderer:
+        closed = False
+
+        def render(self, url: str) -> RenderedResponse:
+            assert url == "https://example.test/"
+            return RenderedResponse(
+                url=url,
+                status_code=200,
+                headers={"content-type": "text/html"},
+                html="""
+                    <html>
+                      <title>SPA</title>
+                      <a href="/dashboard">Dashboard</a>
+                      <form method="post" action="/login"><input name="email"></form>
+                    </html>
+                """,
+            )
+
+        def close(self) -> None:
+            self.closed = True
+
+    renderer = FakeRenderer()
+    result = Crawler(
+        ScanConfig(target_url="https://example.test/", max_depth=0),
+        SpaClient(),
+        renderer=renderer,
+    ).crawl()
+
+    assert result.errors == {}
+    assert result.pages[0].title == "SPA"
+    assert result.pages[0].links == ("https://example.test/dashboard",)
+    assert result.pages[0].forms[0].action == "https://example.test/login"
+    assert renderer.closed is True
+
+
+def test_crawler_can_force_playwright_engine_without_requests() -> None:
+    class FailingClient(FakeClient):
+        def get(self, url: str) -> HttpResponse:
+            raise AssertionError("requests engine must not be used")
+
+    class FakeRenderer:
+        def render(self, url: str) -> RenderedResponse:
+            return RenderedResponse(
+                url=url,
+                status_code=200,
+                headers={"content-type": "text/html"},
+                html="<html><title>Rendered</title></html>",
+            )
+
+        def close(self) -> None:
+            return None
+
+    result = Crawler(
+        ScanConfig(target_url="https://example.test/", crawl_engine="playwright"),
+        FailingClient(),
+        renderer=FakeRenderer(),
+    ).crawl()
+
+    assert [page.title for page in result.pages] == ["Rendered"]

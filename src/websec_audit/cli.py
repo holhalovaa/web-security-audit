@@ -41,6 +41,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable TLS certificate verification for lab targets.",
     )
     parser.add_argument(
+        "--crawl-engine",
+        choices=("auto", "requests", "playwright"),
+        default="auto",
+        help="Crawler engine: requests, Playwright, or automatic SPA fallback.",
+    )
+    parser.add_argument(
         "--html-output",
         type=Path,
         default=Path("reports/report.html"),
@@ -65,6 +71,7 @@ def main(argv: list[str] | None = None) -> int:
         include_subdomains=args.include_subdomains,
         active_checks=not args.no_active_checks,
         verify_tls=not args.no_verify_tls,
+        crawl_engine=args.crawl_engine,
     )
 
     report = SecurityAuditor(config).run()

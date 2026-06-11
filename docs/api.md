@@ -27,6 +27,7 @@ websec-audit TARGET [options]
 | `--include-subdomains` | Разрешить обход поддоменов | выключено |
 | `--no-active-checks` | Отключить активные XSS и SQLi проверки | выключено |
 | `--no-verify-tls` | Отключить проверку TLS-сертификата | выключено |
+| `--crawl-engine` | Движок обхода: `auto`, `requests` или `playwright` | `auto` |
 | `--html-output` | Путь к HTML-отчету | `reports/report.html` |
 | `--pdf-output` | Путь к PDF-отчету | не задан |
 | `--json-output` | Путь к JSON-отчету | не задан |
@@ -45,9 +46,16 @@ websec-audit https://example.com --no-active-checks --html-output reports/report
 websec-audit https://example.com \
   --max-depth 2 \
   --max-pages 30 \
+  --crawl-engine auto \
   --html-output reports/report.html \
   --pdf-output reports/report.pdf \
   --json-output reports/report.json
+```
+
+Для SPA и сайтов, где DOM собирается JavaScript-кодом, используйте:
+
+```bash
+websec-audit https://example.com --crawl-engine playwright --no-active-checks
 ```
 
 Запуск для локального стенда:
@@ -72,6 +80,30 @@ config = ScanConfig(
 report = SecurityAuditor(config).run()
 print(report.summary_by_severity)
 ```
+
+## Веб-интерфейс
+
+Для демонстрации проекта и ручного запуска аудита доступен браузерный интерфейс:
+
+```bash
+websec-audit-web
+```
+
+По умолчанию интерфейс открывается на `http://127.0.0.1:8080`. В форме можно указать
+целевой сайт, выбрать пассивный или активный режим, глубину краулинга, лимит страниц,
+таймаут, движок обхода, проверку поддоменов, TLS-режим и создание PDF-отчета.
+
+Для запуска в контейнере сервис `web` из Docker Compose публикует порт `8080`:
+
+```bash
+docker compose up --build web
+```
+
+Веб-интерфейс использует те же доменные модели и `SecurityAuditor`, что и CLI. После
+сканирования он сохраняет HTML, JSON и опционально PDF в каталог `reports/`.
+Перед отправкой формы показывается экран ожидания с примерной длительностью аудита.
+В HTML-отчете сводка по `High`, `Medium`, `Low` и `Info` работает как навигация к
+соответствующим группам находок, а кнопка `↑` возвращает к началу страницы.
 
 ## Основные модели
 

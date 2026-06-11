@@ -80,6 +80,7 @@ class ScanConfig:
     include_subdomains: bool = False
     active_checks: bool = True
     verify_tls: bool = True
+    crawl_engine: str = "auto"
 
 
 @dataclass
