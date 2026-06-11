@@ -17,11 +17,16 @@ INJECTABLE_FIELD_TYPES = {
 }
 
 
-def build_form_payload(form: Form, payload: str) -> dict[str, str]:
+def build_form_payload(form: Form, payload: str, target_field: str | None = None) -> dict[str, str]:
     data: dict[str, str] = {}
     injected = False
     for field in form.fields:
-        if field.field_type in INJECTABLE_FIELD_TYPES:
+        should_inject = (
+            field.name == target_field
+            if target_field is not None
+            else field.field_type in INJECTABLE_FIELD_TYPES
+        )
+        if should_inject:
             data[field.name] = payload
             injected = True
         else:
@@ -30,6 +35,17 @@ def build_form_payload(form: Form, payload: str) -> dict[str, str]:
         first = form.fields[0]
         data[first.name] = payload
     return data
+
+
+def injectable_field_names(form: Form) -> tuple[str, ...]:
+    names = tuple(
+        field.name
+        for field in form.fields
+        if field.name and field.field_type in INJECTABLE_FIELD_TYPES
+    )
+    if names:
+        return names
+    return tuple(field.name for field in form.fields if field.name)[:1]
 
 
 def curl_command(method: str, url: str, data: Mapping[str, str]) -> str:

@@ -33,6 +33,10 @@ jobs:
         run: bandit -c pyproject.toml -r src
 
       - name: Dependency audit
+        env:
+          PYTHONUTF8: "1"
         run: |
           python -m pip freeze --exclude-editable > requirements-audit.txt
-          pip-audit -r requirements-audit.txt
+          pip-audit -r requirements-audit.txt --progress-spinner off || \
+            (sleep 20 && pip-audit -r requirements-audit.txt --progress-spinner off) || \
+            (sleep 40 && pip-audit -r requirements-audit.txt --progress-spinner off)

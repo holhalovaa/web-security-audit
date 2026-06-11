@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
+import re
 from collections import deque
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 import requests
 
@@ -53,6 +55,12 @@ class PlaywrightPageRenderer:
 
     def render(self, url: str) -> RenderedResponse:
         page = self._context.new_page()
+        response_links: set[str] = set()
+
+        def collect_response_links(response: object) -> None:
+            response_links.update(self._extract_response_links(response))
+
+        page.on("response", collect_response_links)
         try:
             page.set_default_timeout(self._timeout_ms)
             response = page.goto(url, wait_until="domcontentloaded", timeout=self._timeout_ms)
@@ -63,14 +71,15 @@ class PlaywrightPageRenderer:
 
             with suppress(Exception):
                 self._expand_dynamic_content(page)
-            discovered_links = self._extract_browser_links(page)
+            discovered_links = set(self._extract_browser_links(page))
+            discovered_links.update(response_links)
 
             return RenderedResponse(
                 url=page.url,
                 status_code=response.status if response else 0,
                 headers=dict(response.headers) if response else {},
                 html=page.content(),
-                discovered_links=discovered_links,
+                discovered_links=tuple(sorted(discovered_links)),
             )
         finally:
             page.close()
@@ -154,6 +163,22 @@ class PlaywrightPageRenderer:
             if normalized:
                 links.add(normalized)
         return tuple(sorted(links))
+
+    @staticmethod
+    def _extract_response_links(response: object) -> set[str]:
+        links: set[str] = set()
+        try:
+            headers = response.headers
+            content_type = headers.get("content-type", "")
+            if not _may_contain_links(content_type):
+                return links
+            body = response.text()
+            base_url = response.url
+        except Exception:  # noqa: BLE001
+            return links
+
+        links.update(_extract_links_from_text(base_url, body))
+        return links
 
 
 class Crawler:
@@ -264,7 +289,10 @@ def _page_from_response(
     content_type = response.headers.get("content-type", "")
     is_html = "html" in content_type.lower() or response.text.lstrip().startswith("<")
     html_links = extract_links(response.url, response.text) if is_html else ()
-    links = tuple(sorted(set(html_links).union(extra_links)))
+    structured_links = set()
+    if not is_html and _may_contain_links(content_type):
+        structured_links = _extract_links_from_text(response.url, response.text)
+    links = tuple(sorted(set(html_links).union(structured_links, extra_links)))
     forms = extract_forms(response.url, response.text) if is_html else ()
 
     return Page(
@@ -295,6 +323,58 @@ def _should_render_with_playwright(response: HttpResponse, page: Page) -> bool:
         "window.__",
     )
     return any(marker in html for marker in spa_markers)
+
+
+def _may_contain_links(content_type: str) -> bool:
+    normalized = content_type.lower()
+    return any(
+        marker in normalized
+        for marker in ("json", "javascript", "text/", "xml", "html", "x-www-form-urlencoded")
+    )
+
+
+def _extract_links_from_text(base_url: str, text: str) -> set[str]:
+    links: set[str] = set()
+    for raw_link in _iter_text_link_candidates(text):
+        normalized = normalize_url(base_url, raw_link)
+        if normalized:
+            links.add(normalized)
+    return links
+
+
+def _iter_text_link_candidates(text: str) -> set[str]:
+    candidates: set[str] = set()
+    stripped = text.strip()
+    if not stripped:
+        return candidates
+
+    with suppress(json.JSONDecodeError, TypeError):
+        parsed = json.loads(stripped)
+        candidates.update(_iter_json_strings(parsed))
+
+    url_pattern = re.compile(
+        r"""(?:"|')(?P<relative>/(?!/)[^"' <>{}\\]+)(?:"|')|(?P<absolute>https?://[^\s"'<>\\]+)""",
+        re.IGNORECASE,
+    )
+    for match in url_pattern.finditer(text):
+        value = match.group("relative") or match.group("absolute")
+        if value:
+            candidates.add(value.rstrip(".,);]"))
+
+    return candidates
+
+
+def _iter_json_strings(value: Any) -> set[str]:
+    strings: set[str] = set()
+    if isinstance(value, str):
+        strings.add(value)
+    elif isinstance(value, list):
+        for item in value:
+            strings.update(_iter_json_strings(item))
+    elif isinstance(value, dict):
+        for item in value.values():
+            strings.update(_iter_json_strings(item))
+    return strings
 
 
 def _looks_like_challenge_page(url: str, html: str) -> bool:

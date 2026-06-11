@@ -39,7 +39,7 @@ def extract_forms(page_url: str, html: str) -> tuple[Form, ...]:
             name = (element.get("name") or "").strip()
             if not name:
                 continue
-            field_type = (element.get("type") or element.name or "text").strip().lower()
+            field_type = (element.get("type") or _default_field_type(element.name)).strip().lower()
             value = _extract_value(element, field_type)
             fields.append(FormField(name=name, field_type=field_type, value=value))
 
@@ -63,3 +63,11 @@ def _extract_value(element: object, field_type: str) -> str:
     if field_type == "textarea":
         return element.get_text("", strip=False)
     return (element.get("value") or "").strip()
+
+
+def _default_field_type(tag_name: str | None) -> str:
+    if tag_name == "textarea":
+        return "textarea"
+    if tag_name == "select":
+        return "select"
+    return "text"

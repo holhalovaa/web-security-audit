@@ -3,7 +3,7 @@ from collections.abc import Mapping
 import pytest
 import requests
 
-from websec_audit.crawler import Crawler, RenderedResponse
+from websec_audit.crawler import Crawler, PlaywrightPageRenderer, RenderedResponse
 from websec_audit.http_client import HttpResponse
 from websec_audit.models import ScanConfig
 
@@ -82,6 +82,47 @@ def test_crawler_handles_non_html_responses() -> None:
     assert len(result.pages) == 1
     assert result.pages[0].links == ()
     assert result.pages[0].forms == ()
+
+
+def test_crawler_extracts_links_from_json_responses() -> None:
+    class JsonClient(FakeClient):
+        def get(self, url: str) -> HttpResponse:
+            pages = {
+                "https://example.test/api": '{"items": [{"href": "/products/42"}]}',
+                "https://example.test/products/42": '{"ok": true}',
+            }
+            return HttpResponse(
+                url=url,
+                status_code=200,
+                headers={"content-type": "application/json"},
+                text=pages[url],
+            )
+
+    result = Crawler(
+        ScanConfig(target_url="https://example.test/api", max_depth=1, max_pages=10),
+        JsonClient(),
+    ).crawl()
+
+    assert [page.url for page in result.pages] == [
+        "https://example.test/api",
+        "https://example.test/products/42",
+    ]
+
+
+def test_playwright_renderer_extracts_links_from_json_network_response() -> None:
+    class FakeResponse:
+        headers = {"content-type": "application/json"}
+        url = "https://example.test/api/menu"
+
+        def text(self) -> str:
+            return '{"next": "/dashboard", "external": "https://other.test/path"}'
+
+    links = PlaywrightPageRenderer._extract_response_links(FakeResponse())
+
+    assert links == {
+        "https://example.test/dashboard",
+        "https://other.test/path",
+    }
 
 
 def test_crawler_rejects_invalid_target_url() -> None:

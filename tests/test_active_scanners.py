@@ -27,6 +27,17 @@ class FailingClient(EchoClient):
         raise requests.RequestException("network error")
 
 
+class SqliDiffClient(EchoClient):
+    def submit(self, method: str, url: str, data: Mapping[str, str]) -> HttpResponse:
+        self.submitted.append(dict(data))
+        body = (
+            "You have an error in your SQL syntax near quote"
+            if any(value == "'" for value in data.values())
+            else "<html>normal login error</html>"
+        )
+        return HttpResponse(url=url, status_code=200, headers={}, text=body)
+
+
 def test_xss_scanner_reports_reflected_payload() -> None:
     form = Form(
         page_url="https://example.test/search",
@@ -40,6 +51,7 @@ def test_xss_scanner_reports_reflected_payload() -> None:
 
     assert len(findings) == 1
     assert findings[0].check_id == "xss.reflected"
+    assert "Field 'q'" in findings[0].evidence
     assert "curl -i" in findings[0].poc
 
 
@@ -65,13 +77,27 @@ def test_sqli_scanner_reports_database_error_pattern() -> None:
         method="post",
         fields=(FormField(name="username"), FormField(name="password")),
     )
-    scanner = SqliScanner(EchoClient("You have an error in your SQL syntax near quote"))
+    scanner = SqliScanner(SqliDiffClient(""))
 
     findings = scanner.scan(form)
 
     assert len(findings) == 1
     assert findings[0].check_id == "sqli.error-based"
+    assert "Field 'username'" in findings[0].evidence
     assert findings[0].poc is not None
+
+
+def test_sqli_scanner_ignores_database_errors_present_in_baseline() -> None:
+    form = Form(
+        page_url="https://example.test/login",
+        action="https://example.test/login",
+        method="post",
+        fields=(FormField(name="username"),),
+    )
+
+    findings = SqliScanner(EchoClient("You have an error in your SQL syntax near quote")).scan(form)
+
+    assert findings == []
 
 
 def test_sqli_scanner_ignores_clean_response_empty_forms_and_network_errors() -> None:
